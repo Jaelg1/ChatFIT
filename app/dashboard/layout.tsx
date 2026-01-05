@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import { auth } from '@/lib/firebase/client'
-import { onAuthStateChanged, signOut } from 'firebase/auth'
+import app from '@/lib/firebase/client'
 import Link from 'next/link'
 
 export default function DashboardLayout({
@@ -18,40 +17,54 @@ export default function DashboardLayout({
   const pathname = usePathname()
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (!firebaseUser) {
-        router.push('/login')
-        return
-      }
+    let unsubscribe: (() => void) | null = null
 
-      // Verificar token con backend
-      try {
-        const token = await firebaseUser.getIdToken()
-        const response = await fetch('/api/auth/verify', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
-
-        if (response.ok) {
-          const data = await response.json()
-          setUser(data.user)
-        } else {
+    const initAuth = async () => {
+      // Dynamic import de firebase/auth
+      const { getAuth, onAuthStateChanged } = await import('firebase/auth')
+      const auth = getAuth(app)
+      
+      unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        if (!firebaseUser) {
           router.push('/login')
+          return
         }
-      } catch (error) {
-        router.push('/login')
-      } finally {
-        setLoading(false)
-      }
-    })
 
-    return () => unsubscribe()
+        // Verificar token con backend
+        try {
+          const token = await firebaseUser.getIdToken()
+          const response = await fetch('/api/auth/verify', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          })
+
+          if (response.ok) {
+            const data = await response.json()
+            setUser(data.user)
+          } else {
+            router.push('/login')
+          }
+        } catch (error) {
+          router.push('/login')
+        } finally {
+          setLoading(false)
+        }
+      })
+    }
+
+    initAuth()
+
+    return () => {
+      if (unsubscribe) unsubscribe()
+    }
   }, [router])
 
   const handleSignOut = async () => {
     try {
+      const { getAuth, signOut } = await import('firebase/auth')
+      const auth = getAuth(app)
       await signOut(auth)
       sessionStorage.removeItem('firebaseToken')
       router.push('/login')

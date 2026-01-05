@@ -1,8 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { auth } from '@/lib/firebase/client'
-import { onAuthStateChanged } from 'firebase/auth'
+import app from '@/lib/firebase/client'
 
 export default function MealsPage() {
   const [meals, setMeals] = useState<any[]>([])
@@ -12,37 +11,44 @@ export default function MealsPage() {
   )
 
   useEffect(() => {
-    fetchMeals()
-  }, [selectedDate])
+    let unsubscribe: (() => void) | null = null
 
-  const fetchMeals = async () => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        setLoading(false)
-        return
-      }
-
-      try {
-        const token = await user.getIdToken()
-        const response = await fetch(`/api/meals?date=${selectedDate}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
-
-        if (response.ok) {
-          const data = await response.json()
-          setMeals(data.meals || [])
+    const fetchMeals = async () => {
+      const { getAuth, onAuthStateChanged } = await import('firebase/auth')
+      const auth = getAuth(app)
+      
+      unsubscribe = onAuthStateChanged(auth, async (user) => {
+        if (!user) {
+          setLoading(false)
+          return
         }
-      } catch (error) {
-        console.error('Error fetching meals:', error)
-      } finally {
-        setLoading(false)
-      }
-    })
 
-    return () => unsubscribe()
-  }
+        try {
+          const token = await user.getIdToken()
+          const response = await fetch(`/api/meals?date=${selectedDate}`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          })
+
+          if (response.ok) {
+            const data = await response.json()
+            setMeals(data.meals || [])
+          }
+        } catch (error) {
+          console.error('Error fetching meals:', error)
+        } finally {
+          setLoading(false)
+        }
+      })
+    }
+
+    fetchMeals()
+
+    return () => {
+      if (unsubscribe) unsubscribe()
+    }
+  }, [selectedDate])
 
   const mealTypeLabels: Record<string, string> = {
     desayuno: 'Desayuno',

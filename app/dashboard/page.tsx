@@ -1,8 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { auth } from '@/lib/firebase/client'
-import { onAuthStateChanged } from 'firebase/auth'
+import app from '@/lib/firebase/client'
 import Link from 'next/link'
 
 export default function DashboardPage() {
@@ -10,8 +9,13 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    let unsubscribe: (() => void) | null = null
+
     const fetchData = async () => {
-      const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      const { getAuth, onAuthStateChanged } = await import('firebase/auth')
+      const auth = getAuth(app)
+      
+      unsubscribe = onAuthStateChanged(auth, async (user) => {
         if (!user) return
 
         try {
@@ -32,11 +36,13 @@ export default function DashboardPage() {
           setLoading(false)
         }
       })
-
-      return () => unsubscribe()
     }
 
     fetchData()
+
+    return () => {
+      if (unsubscribe) unsubscribe()
+    }
   }, [])
 
   if (loading) {
