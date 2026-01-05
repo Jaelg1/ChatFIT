@@ -8,19 +8,29 @@ const firebaseConfig = {
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
 }
 
-// Initialize Firebase
+// Initialize Firebase (solo en el cliente)
+// Durante el build, estos serán undefined, pero en el cliente estarán inicializados
 let app: FirebaseApp
-if (getApps().length === 0) {
-  app = initializeApp(firebaseConfig)
+let auth: Auth
+let googleProvider: GoogleAuthProvider
+
+if (typeof window !== 'undefined') {
+  // Solo inicializar en el cliente (navegador)
+  if (getApps().length === 0) {
+    app = initializeApp(firebaseConfig)
+  } else {
+    app = getApps()[0]
+  }
+  auth = getAuth(app)
+  googleProvider = new GoogleAuthProvider()
 } else {
-  app = getApps()[0]
+  // Para SSR/build time, crear objetos dummy que nunca se usarán
+  // Estos solo existen para satisfacer TypeScript durante el build
+  app = {} as FirebaseApp
+  auth = {} as Auth
+  googleProvider = {} as GoogleAuthProvider
 }
 
-// Initialize Firebase Auth
-export const auth: Auth = getAuth(app)
-
-// Google Auth Provider
-export const googleProvider = new GoogleAuthProvider()
-
+export { auth, googleProvider }
 export default app
 

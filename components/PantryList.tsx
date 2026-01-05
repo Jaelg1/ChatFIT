@@ -8,10 +8,16 @@ export default function PantryList() {
   const [items, setItems] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddForm, setShowAddForm] = useState(false)
+  const [editingItem, setEditingItem] = useState<any>(null)
   const [formData, setFormData] = useState({
     customName: '',
     quantity: '',
     unit: 'g',
+    expiryDate: '',
+  })
+  const [editFormData, setEditFormData] = useState({
+    quantity: '',
+    unit: '',
     expiryDate: '',
   })
 
@@ -90,6 +96,55 @@ export default function PantryList() {
     } catch (error) {
       console.error('Error adding item:', error)
       alert('Error al agregar item')
+    }
+  }
+
+  const handleEdit = (item: any) => {
+    setEditingItem(item)
+    setEditFormData({
+      quantity: item.quantity.toString(),
+      unit: item.unit,
+      expiryDate: item.expiryDate
+        ? new Date(item.expiryDate).toISOString().split('T')[0]
+        : '',
+    })
+  }
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const user = auth.currentUser
+    if (!user || !editingItem) return
+
+    try {
+      const token = await user.getIdToken()
+      const response = await fetch(`/api/pantry/${editingItem._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          quantity: parseFloat(editFormData.quantity),
+          unit: editFormData.unit,
+          expiryDate: editFormData.expiryDate || undefined,
+        }),
+      })
+
+      if (response.ok) {
+        await fetchItems()
+        setEditingItem(null)
+        setEditFormData({
+          quantity: '',
+          unit: '',
+          expiryDate: '',
+        })
+      } else {
+        const error = await response.json()
+        alert(error.error || 'Error al actualizar item')
+      }
+    } catch (error) {
+      console.error('Error updating item:', error)
+      alert('Error al actualizar item')
     }
   }
 
@@ -202,25 +257,107 @@ export default function PantryList() {
         </form>
       )}
 
+      {/* Formulario de edición */}
+      {editingItem && (
+        <form onSubmit={handleUpdate} className="bg-white rounded-lg shadow p-4 md:p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold">
+              Editar: {editingItem.foodId ? editingItem.foodId.name : editingItem.customName}
+            </h3>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingItem(null)
+                setEditFormData({ quantity: '', unit: '', expiryDate: '' })
+              }}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Cantidad *
+              </label>
+              <input
+                type="number"
+                step="0.1"
+                required
+                value={editFormData.quantity}
+                onChange={(e) => setEditFormData({ ...editFormData, quantity: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                placeholder="500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Unidad *
+              </label>
+              <input
+                type="text"
+                required
+                value={editFormData.unit}
+                onChange={(e) => setEditFormData({ ...editFormData, unit: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                placeholder="g, kg, unidades, etc."
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Fecha de vencimiento
+              </label>
+              <input
+                type="date"
+                value={editFormData.expiryDate}
+                onChange={(e) => setEditFormData({ ...editFormData, expiryDate: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-2 mt-4">
+            <button
+              type="submit"
+              className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700"
+            >
+              Guardar Cambios
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingItem(null)
+                setEditFormData({ quantity: '', unit: '', expiryDate: '' })
+              }}
+              className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300"
+            >
+              Cancelar
+            </button>
+          </div>
+        </form>
+      )}
+
       {items.length === 0 ? (
-        <div className="bg-white rounded-lg shadow p-6 text-center">
+        <div className="bg-white rounded-lg shadow p-4 md:p-6 text-center">
           <p className="text-gray-600">No hay items en la despensa</p>
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="bg-white rounded-lg shadow overflow-hidden overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Alimento
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Cantidad
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase hidden sm:table-cell">
                   Vencimiento
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Acciones
                 </th>
               </tr>
@@ -228,24 +365,32 @@ export default function PantryList() {
             <tbody className="bg-white divide-y divide-gray-200">
               {items.map((item) => (
                 <tr key={item._id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-3 md:px-6 py-3 md:py-4 text-sm text-gray-900">
                     {item.foodId ? item.foodId.name : item.customName}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-3 md:px-6 py-3 md:py-4 text-sm text-gray-900">
                     {item.quantity} {item.unit}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-3 md:px-6 py-3 md:py-4 text-sm text-gray-900 hidden sm:table-cell">
                     {item.expiryDate
                       ? new Date(item.expiryDate).toLocaleDateString()
                       : 'N/A'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <button
-                      onClick={() => handleDelete(item._id)}
-                      className="text-red-600 hover:text-red-800"
-                    >
-                      Eliminar
-                    </button>
+                  <td className="px-3 md:px-6 py-3 md:py-4 text-sm">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleEdit(item)}
+                        className="text-indigo-600 hover:text-indigo-800 font-medium"
+                      >
+                        Editar
+                      </button>
+                      <button
+                        onClick={() => handleDelete(item._id)}
+                        className="text-red-600 hover:text-red-800 font-medium"
+                      >
+                        Eliminar
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
