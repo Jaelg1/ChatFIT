@@ -1,8 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { auth } from '@/lib/firebase/client'
-import { onAuthStateChanged } from 'firebase/auth'
+import { getFirebaseApp } from '@/lib/firebase/client'
 import { calculateBMI, getBMICategory, getBMICategoryLabel } from '@/lib/utils/bmi'
 import { CategoriaIMC } from '@/models/BMIHistory'
 
@@ -15,11 +14,14 @@ export default function BMICalculator() {
   const [history, setHistory] = useState<any[]>([])
 
   useEffect(() => {
-    fetchHistory()
-  }, [])
+    let unsubscribe: (() => void) | null = null
 
-  const fetchHistory = async () => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const fetchHistory = async () => {
+      const app = await getFirebaseApp()
+      const { getAuth, onAuthStateChanged } = await import('firebase/auth')
+      const auth = getAuth(app)
+      
+      unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) return
 
       try {
@@ -37,10 +39,15 @@ export default function BMICalculator() {
       } catch (error) {
         console.error('Error fetching history:', error)
       }
-    })
+      })
+    }
 
-    return () => unsubscribe()
-  }
+    fetchHistory()
+
+    return () => {
+      if (unsubscribe) unsubscribe()
+    }
+  }, [])
 
   const handleCalculate = async () => {
     if (!peso || !altura) {
@@ -57,6 +64,9 @@ export default function BMICalculator() {
     // Guardar en backend
     setLoading(true)
     try {
+      const app = await getFirebaseApp()
+      const { getAuth } = await import('firebase/auth')
+      const auth = getAuth(app)
       const user = auth.currentUser
       if (!user) return
 

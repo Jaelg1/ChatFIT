@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import app from '@/lib/firebase/client'
+import { getFirebaseApp } from '@/lib/firebase/client'
 import Link from 'next/link'
 
 export default function DashboardPage() {
@@ -12,6 +12,7 @@ export default function DashboardPage() {
     let unsubscribe: (() => void) | null = null
 
     const fetchData = async () => {
+      const app = await getFirebaseApp()
       const { getAuth, onAuthStateChanged } = await import('firebase/auth')
       const auth = getAuth(app)
       

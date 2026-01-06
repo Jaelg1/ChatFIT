@@ -1,8 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { auth } from '@/lib/firebase/client'
-import { onAuthStateChanged } from 'firebase/auth'
+import { getFirebaseApp } from '@/lib/firebase/client'
 
 export default function ProfileForm() {
   const [loading, setLoading] = useState(false)
@@ -18,8 +17,14 @@ export default function ProfileForm() {
   const [profile, setProfile] = useState<any>(null)
 
   useEffect(() => {
+    let unsubscribe: (() => void) | null = null
+
     const fetchProfile = async () => {
-      const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      const app = await getFirebaseApp()
+      const { getAuth, onAuthStateChanged } = await import('firebase/auth')
+      const auth = getAuth(app)
+      
+      unsubscribe = onAuthStateChanged(auth, async (user) => {
         if (!user) return
 
         try {
@@ -48,11 +53,13 @@ export default function ProfileForm() {
           console.error('Error fetching profile:', error)
         }
       })
-
-      return () => unsubscribe()
     }
 
     fetchProfile()
+
+    return () => {
+      if (unsubscribe) unsubscribe()
+    }
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -61,6 +68,9 @@ export default function ProfileForm() {
     setSaved(false)
 
     try {
+      const app = await getFirebaseApp()
+      const { getAuth } = await import('firebase/auth')
+      const auth = getAuth(app)
       const user = auth.currentUser
       if (!user) return
 

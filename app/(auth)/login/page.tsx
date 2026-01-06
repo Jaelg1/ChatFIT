@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import app from '@/lib/firebase/client'
+import { getFirebaseApp } from '@/lib/firebase/client'
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false)
@@ -14,7 +14,8 @@ export default function LoginPage() {
       setLoading(true)
       setError(null)
 
-      // Dynamic import de firebase/auth
+      // Dynamic imports de firebase
+      const app = await getFirebaseApp()
       const { getAuth, GoogleAuthProvider, signInWithPopup } = await import('firebase/auth')
       const auth = getAuth(app)
       const googleProvider = new GoogleAuthProvider()

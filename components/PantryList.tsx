@@ -1,8 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { auth } from '@/lib/firebase/client'
-import { onAuthStateChanged } from 'firebase/auth'
+import { getFirebaseApp } from '@/lib/firebase/client'
 
 export default function PantryList() {
   const [items, setItems] = useState<any[]>([])
@@ -22,11 +21,14 @@ export default function PantryList() {
   })
 
   useEffect(() => {
-    fetchItems()
-  }, [])
+    let unsubscribe: (() => void) | null = null
 
-  const fetchItems = async () => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const fetchItems = async () => {
+      const app = await getFirebaseApp()
+      const { getAuth, onAuthStateChanged } = await import('firebase/auth')
+      const auth = getAuth(app)
+      
+      unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         setLoading(false)
         return
@@ -49,13 +51,21 @@ export default function PantryList() {
       } finally {
         setLoading(false)
       }
-    })
+      })
+    }
 
-    return () => unsubscribe()
-  }
+    fetchItems()
+
+    return () => {
+      if (unsubscribe) unsubscribe()
+    }
+  }, [])
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault()
+    const app = await getFirebaseApp()
+    const { getAuth } = await import('firebase/auth')
+    const auth = getAuth(app)
     const user = auth.currentUser
     if (!user) return
 
@@ -112,6 +122,9 @@ export default function PantryList() {
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault()
+    const app = await getFirebaseApp()
+    const { getAuth } = await import('firebase/auth')
+    const auth = getAuth(app)
     const user = auth.currentUser
     if (!user || !editingItem) return
 
@@ -151,6 +164,9 @@ export default function PantryList() {
   const handleDelete = async (id: string) => {
     if (!confirm('¿Eliminar este item?')) return
 
+    const app = await getFirebaseApp()
+    const { getAuth } = await import('firebase/auth')
+    const auth = getAuth(app)
     const user = auth.currentUser
     if (!user) return
 

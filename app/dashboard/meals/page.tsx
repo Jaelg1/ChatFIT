@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import app from '@/lib/firebase/client'
+import { getFirebaseApp } from '@/lib/firebase/client'
 
 export default function MealsPage() {
   const [meals, setMeals] = useState<any[]>([])
@@ -13,9 +13,10 @@ export default function MealsPage() {
   useEffect(() => {
     let unsubscribe: (() => void) | null = null
 
-    const fetchMeals = async () => {
-      const { getAuth, onAuthStateChanged } = await import('firebase/auth')
-      const auth = getAuth(app)
+  const fetchMeals = async () => {
+    const app = await getFirebaseApp()
+    const { getAuth, onAuthStateChanged } = await import('firebase/auth')
+    const auth = getAuth(app)
       
       unsubscribe = onAuthStateChanged(auth, async (user) => {
         if (!user) {

@@ -1,8 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { auth } from '@/lib/firebase/client'
-import { onAuthStateChanged } from 'firebase/auth'
+import { getFirebaseApp } from '@/lib/firebase/client'
 
 export default function ChatInterface() {
   const [messages, setMessages] = useState<Array<{ role: string; content: string }>>([])
@@ -29,6 +28,9 @@ export default function ChatInterface() {
     setLoading(true)
 
     try {
+      const app = await getFirebaseApp()
+      const { getAuth } = await import('firebase/auth')
+      const auth = getAuth(app)
       const user = auth.currentUser
       if (!user) return
 

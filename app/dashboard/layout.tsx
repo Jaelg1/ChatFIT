@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import app from '@/lib/firebase/client'
+import { getFirebaseApp } from '@/lib/firebase/client'
 import Link from 'next/link'
 
 export default function DashboardLayout({
@@ -20,7 +20,8 @@ export default function DashboardLayout({
     let unsubscribe: (() => void) | null = null
 
     const initAuth = async () => {
-      // Dynamic import de firebase/auth
+      // Dynamic imports de firebase
+      const app = await getFirebaseApp()
       const { getAuth, onAuthStateChanged } = await import('firebase/auth')
       const auth = getAuth(app)
       
@@ -63,6 +64,7 @@ export default function DashboardLayout({
 
   const handleSignOut = async () => {
     try {
+      const app = await getFirebaseApp()
       const { getAuth, signOut } = await import('firebase/auth')
       const auth = getAuth(app)
       await signOut(auth)

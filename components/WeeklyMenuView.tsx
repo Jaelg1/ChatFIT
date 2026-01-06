@@ -1,8 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { auth } from '@/lib/firebase/client'
-import { onAuthStateChanged } from 'firebase/auth'
+import { getFirebaseApp } from '@/lib/firebase/client'
 
 export default function WeeklyMenuView() {
   const [menu, setMenu] = useState<any>(null)
@@ -10,11 +9,14 @@ export default function WeeklyMenuView() {
   const [generating, setGenerating] = useState(false)
 
   useEffect(() => {
-    fetchMenu()
-  }, [])
+    let unsubscribe: (() => void) | null = null
 
-  const fetchMenu = async () => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const fetchMenu = async () => {
+      const app = await getFirebaseApp()
+      const { getAuth, onAuthStateChanged } = await import('firebase/auth')
+      const auth = getAuth(app)
+      
+      unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         setLoading(false)
         return
@@ -37,13 +39,21 @@ export default function WeeklyMenuView() {
       } finally {
         setLoading(false)
       }
-    })
+      })
+    }
 
-    return () => unsubscribe()
-  }
+    fetchMenu()
+
+    return () => {
+      if (unsubscribe) unsubscribe()
+    }
+  }, [])
 
   const handleGenerate = async () => {
     setGenerating(true)
+    const app = await getFirebaseApp()
+    const { getAuth } = await import('firebase/auth')
+    const auth = getAuth(app)
     const user = auth.currentUser
     if (!user) return
 
