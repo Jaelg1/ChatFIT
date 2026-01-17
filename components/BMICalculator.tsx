@@ -13,36 +13,49 @@ export default function BMICalculator() {
   const [loading, setLoading] = useState(false)
   const [history, setHistory] = useState<any[]>([])
 
+  const fetchHistory = async (userOverride?: any) => {
+    try {
+      const app = await getFirebaseApp()
+      const { getAuth } = await import('firebase/auth')
+      const auth = getAuth(app)
+      const user = userOverride || auth.currentUser
+      if (!user) return
+
+      const token = await user.getIdToken()
+      const response = await fetch('/api/bmi/history', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setHistory(data.history || [])
+      }
+    } catch (error) {
+      console.error('Error fetching history:', error)
+    }
+  }
+
   useEffect(() => {
     let unsubscribe: (() => void) | null = null
 
-    const fetchHistory = async () => {
+    const init = async () => {
       const app = await getFirebaseApp()
       const { getAuth, onAuthStateChanged } = await import('firebase/auth')
       const auth = getAuth(app)
-      
+
       unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) return
-
-      try {
-        const token = await user.getIdToken()
-        const response = await fetch('/api/bmi/history', {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
-
-        if (response.ok) {
-          const data = await response.json()
-          setHistory(data.history || [])
-        }
-      } catch (error) {
-        console.error('Error fetching history:', error)
-      }
+        if (!user) return
+        await fetchHistory(user)
       })
+
+      if (auth.currentUser) {
+        await fetchHistory(auth.currentUser)
+      }
     }
 
-    fetchHistory()
+    init()
 
     return () => {
       if (unsubscribe) unsubscribe()
