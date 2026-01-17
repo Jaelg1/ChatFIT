@@ -20,41 +20,57 @@ export default function PantryList() {
     expiryDate: '',
   })
 
-  useEffect(() => {
-    let unsubscribe: (() => void) | null = null
-
-    const fetchItems = async () => {
+  const fetchItems = async (userOverride?: any) => {
+    try {
       const app = await getFirebaseApp()
-      const { getAuth, onAuthStateChanged } = await import('firebase/auth')
+      const { getAuth } = await import('firebase/auth')
       const auth = getAuth(app)
-      
-      unsubscribe = onAuthStateChanged(auth, async (user) => {
+      const user = userOverride || auth.currentUser
       if (!user) {
         setLoading(false)
         return
       }
 
-      try {
-        const token = await user.getIdToken()
-        const response = await fetch('/api/pantry', {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
-
-        if (response.ok) {
-          const data = await response.json()
-          setItems(data.items || [])
-        }
-      } catch (error) {
-        console.error('Error fetching items:', error)
-      } finally {
-        setLoading(false)
-      }
+      const token = await user.getIdToken()
+      const response = await fetch('/api/pantry', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       })
+
+      if (response.ok) {
+        const data = await response.json()
+        setItems(data.items || [])
+      }
+    } catch (error) {
+      console.error('Error fetching items:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    let unsubscribe: (() => void) | null = null
+
+    const init = async () => {
+      const app = await getFirebaseApp()
+      const { getAuth, onAuthStateChanged } = await import('firebase/auth')
+      const auth = getAuth(app)
+
+      unsubscribe = onAuthStateChanged(auth, async (user) => {
+        if (!user) {
+          setLoading(false)
+          return
+        }
+        await fetchItems(user)
+      })
+
+      if (auth.currentUser) {
+        await fetchItems(auth.currentUser)
+      }
     }
 
-    fetchItems()
+    init()
 
     return () => {
       if (unsubscribe) unsubscribe()
