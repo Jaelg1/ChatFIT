@@ -65,17 +65,26 @@ export async function POST(
 
       // Recalcular calorías
       let totalKcal = 0
-      for (const ing of recipe.ingredients) {
-        // Buscar en pantry para calcular calorías
-        const pantryItem = await PantryItem.findOne({
-          userId: result.user!._id,
-          $or: [
-            { foodId: { $exists: true } },
-            { customName: ing.name },
-          ],
-        })
-          .populate('foodId')
-          .lean()
+    for (const ing of recipe.ingredients) {
+      // Buscar en pantry para calcular calorías por nombre
+      let pantryItem = await PantryItem.findOne({
+        userId: result.user!._id,
+        customName: ing.name,
+      })
+        .populate('foodId')
+        .lean()
+
+      if (!pantryItem) {
+        const food = await Food.findOne({ name: ing.name }).lean()
+        if (food) {
+          pantryItem = await PantryItem.findOne({
+            userId: result.user!._id,
+            foodId: food._id,
+          })
+            .populate('foodId')
+            .lean()
+        }
+      }
 
         if (pantryItem?.foodId) {
           const food = pantryItem.foodId as any

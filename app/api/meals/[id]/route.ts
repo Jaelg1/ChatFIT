@@ -3,6 +3,7 @@ import { verifyFirebaseToken } from '@/middleware/auth'
 import connectDB from '@/lib/mongodb/connect'
 import MealLog from '@/models/MealLog'
 import MealItem from '@/models/MealItem'
+import Food from '@/models/Food'
 
 export async function PUT(
   req: NextRequest,
@@ -30,19 +31,59 @@ export async function PUT(
     if (mealType) mealLog.mealType = mealType
     await mealLog.save()
 
+    let mealItems: any[] = []
+
     // Si hay items, actualizar
     if (items && Array.isArray(items)) {
       // Eliminar items existentes
       await MealItem.deleteMany({ mealLogId: mealLog._id })
 
-      // Crear nuevos items (similar a POST)
-      // Por simplicidad, reutilizamos la lógica de POST
-      // En producción, podrías extraer esto a una función helper
-    }
+      // Crear nuevos items (misma lógica que en POST)
+      const createdItems = await Promise.all(
+        items.map(async (item: any) => {
+          let estimatedKcal = item.estimatedKcal || 0
+          let macros = item.macros
 
-    const mealItems = await MealItem.find({ mealLogId: mealLog._id })
-      .populate('foodId')
-      .lean()
+          if (item.foodId) {
+            const food = await Food.findById(item.foodId)
+            if (food) {
+              const multiplier = item.quantity / 100
+              estimatedKcal = food.kcalPer100g * multiplier
+              macros = {
+                protein: food.proteinPer100g
+                  ? food.proteinPer100g * multiplier
+                  : undefined,
+                carbs: food.carbsPer100g ? food.carbsPer100g * multiplier : undefined,
+                fat: food.fatPer100g ? food.fatPer100g * multiplier : undefined,
+              }
+            }
+          }
+
+          return MealItem.create({
+            mealLogId: mealLog._id,
+            foodId: item.foodId,
+            customName: item.customName,
+            quantity: item.quantity,
+            unit: item.unit || 'g',
+            estimatedKcal,
+            macros,
+          })
+        })
+      )
+
+      const populatedItems = await Promise.all(
+        createdItems.map(async (item) => {
+          await item.populate('foodId')
+          return item.toObject()
+        })
+      )
+
+      mealItems = populatedItems
+    } else {
+      mealItems = await MealItem.find({ mealLogId: mealLog._id })
+        .populate('foodId')
+        .lean()
+    }
 
     return NextResponse.json({
       meal: { ...mealLog.toObject(), items: mealItems },
